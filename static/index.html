@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>远程浏览器控制台</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #1a2a6c);
+            color: white;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            padding: 20px 0;
+            margin-bottom: 30px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        h1 {
+            font-size: 2.8rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            background: linear-gradient(90deg, #6ab1ea, #a6c1ee);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        .main-content {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 1100px) {
+            .main-content {
+                flex-direction: column;
+            }
+        }
+
+        .browser-container {
+            flex: 3;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .browser-header {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .url-bar {
+            flex: 1;
+            min-width: 300px;
+            display: flex;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 30px;
+            overflow: hidden;
+            height: 50px;
+        }
+
+        .url-bar input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            padding: 0 20px;
+            color: white;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        .url-bar button {
+            background: #4e54c8;
+            color: white;
+            border: none;
+            padding: 0 25px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .url-bar button:hover {
+            background: #3f43b3;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .control-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: all 0.3s;
+        }
+
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.05);
+        }
+
+        .browser-display {
+            background: #111;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+            height: 600px;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+        }
+
+        #remoteBrowser {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            cursor: pointer;
+            transition: opacity 0.3s;
+        }
+
+        .loading {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .instructions {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            max-height: 700px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .instructions::before {
+            content: "";
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(110, 110, 255, 0.1) 0%, transparent 70%);
+            z-index: -1;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            color: #6ab1ea;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .instructions-content {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 20px;
+            height: calc(100% - 60px);
+            overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .instructions-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .instructions-content::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        .instructions-content::-webkit-scrollbar-thumb {
+            background: #4e54c8;
+            border-radius: 10px;
+        }
+
+        .instruction-item {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.3s;
+        }
+
+        .instruction-item:hover {
+            transform: translateX(5px);
+        }
+
+        .instruction-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        h3 {
+            font-size: 1.3rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #a6c1ee;
+        }
+
+        .icon {
+            font-size: 1.5rem;
+            width: 30px;
+            height: 30px;
+            background: rgba(78, 84, 200, 0.3);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .key {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.15);
+            padding: 3px 8px;
+            border-radius: 5px;
+            font-family: monospace;
+            margin: 0 3px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        footer {
+            text-align: center;
+            padding: 20px;
+            margin-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 0.9rem;
+            opacity: 0.7;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            z-index: 100;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ff4757;
+            box-shadow: 0 0 10px #ff4757;
+        }
+
+        .status.connected .status-indicator {
+            background: #2ed573;
+            box-shadow: 0 0 10px #2ed573;
+        }
+
+        .performance {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+        }
+
+        .perf-item {
+            text-align: center;
+            flex: 1;
+        }
+
+        .perf-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #6ab1ea;
+            margin-top: 5px;
+        }
+
+        .connection-quality {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+
+        .quality-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #2ed573;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 30px;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            backdrop-filter: blur(5px);
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+
+        .notification.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <h1><i class="fas fa-globe-americas"></i> 远程浏览器控制台</h1>
+        <p class="subtitle">
+            此界面允许您实时查看并远程控制一个浏览器实例。所有操作将实时同步到服务器端的Playwright浏览器。
+        </p>
+    </header>
+
+    <div class="main-content">
+        <div class="browser-container">
+            <div class="connection-quality">
+                <div class="quality-indicator"></div>
+                <span>网络质量: 优秀</span>
+            </div>
+
+            <div class="browser-header">
+                <div class="url-bar">
+                    <input type="text" id="urlInput" placeholder="输入网址 (例如: https://example.com)" value="https://example.com">
+                    <button id="goButton">访问</button>
+                </div>
+                <div class="controls">
+                    <button class="control-btn" id="backButton" title="后退"><i class="fas fa-arrow-left"></i></button>
+                    <button class="control-btn" id="forwardButton" title="前进"><i class="fas fa-arrow-right"></i></button>
+                    <button class="control-btn" id="refreshButton" title="刷新"><i class="fas fa-sync-alt"></i></button>
+                    <button class="control-btn" id="fullscreenButton" title="全屏"><i class="fas fa-expand"></i></button>
+                </div>
+            </div>
+
+            <div class="browser-display">
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>正在连接远程浏览器...</p>
+                </div>
+                <img id="remoteBrowser" alt="远程浏览器画面" src="https://via.placeholder.com/1280x720/333333/666666?text=正在连接远程浏览器...">
+            </div>
+
+            <div class="performance">
+                <div class="perf-item">
+                    <div>刷新率</div>
+                    <div class="perf-value" id="fpsCounter">0 FPS</div>
+                </div>
+                <div class="perf-item">
+                    <div>延迟</div>
+                    <div class="perf-value" id="latencyCounter">0 ms</div>
+                </div>
+                <div class="perf-item">
+                    <div>传输量</div>
+                    <div class="perf-value" id="dataCounter">0 KB</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="instructions">
+            <h2><i class="fas fa-book"></i> 使用说明</h2>
+            <div class="instructions-content">
+                <div class="instruction-item">
+                    <h3><span class="icon">🖱️</span> 鼠标控制</h3>
+                    <p>在浏览器显示区域内点击、双击或拖动鼠标，操作将实时传输到远程浏览器。</p>
+                </div>
+
+                <div class="instruction-item">
+                    <h3><span class="icon">⌨️</span> 键盘输入</h3>
+                    <p>点击浏览器内的输入框后，可以直接使用键盘输入内容。</p>
+                </div>
+
+                <div class="instruction-item">
+                    <h3><span class="icon">↕️</span> 页面滚动</h3>
+                    <p>使用鼠标滚轮或触摸板可以滚动远程浏览器页面。</p>
+                </div>
+
+                <div class="instruction-item">
+                    <h3><span class="icon">🌐</span> 网址导航</h3>
+                    <p>在上方地址栏输入网址并点击"访问"按钮，或按 <span class="key">Enter</span> 键导航到新页面。</p>
+                </div>
+
+                <div class="instruction-item">
+                    <h3><span class="icon">🔄</span> 浏览器控制</h3>
+                    <p>使用控制按钮进行后退、前进和刷新操作。</p>
+                </div>
+
+                <div class="instruction-item">
+                    <h3><span class="icon">⏱️</span> 实时性能</h3>
+                    <p>系统优化了传输效率，在普通网络环境下可达到15-20 FPS的流畅体验。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <i class="fas fa-code"></i>
+        <p>Playwright 远程浏览器控制台 | 实时交互技术演示</p>
+    </footer>
+</div>
+
+<div class="status" id="status">
+    <div class="status-indicator"></div>
+    <span>正在连接...</span>
+</div>
+
+<div class="notification" id="notification">
+    <i class="fas fa-info-circle"></i>
+    <span id="notification-text">消息通知</span>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // 生成唯一会话ID
+        const sessionId = 'session_' + Math.random().toString(36).substr(2, 9);
+
+        // 获取DOM元素
+        const remoteBrowser = document.getElementById('remoteBrowser');
+        const loading = document.getElementById('loading');
+        const urlInput = document.getElementById('urlInput');
+        const goButton = document.getElementById('goButton');
+        const backButton = document.getElementById('backButton');
+        const forwardButton = document.getElementById('forwardButton');
+        const refreshButton = document.getElementById('refreshButton');
+        const fullscreenButton = document.getElementById('fullscreenButton');
+        const status = document.getElementById('status');
+        const fpsCounter = document.getElementById('fpsCounter');
+        const latencyCounter = document.getElementById('latencyCounter');
+        const dataCounter = document.getElementById('dataCounter');
+        const notification = document.getElementById('notification');
+        const notificationText = document.getElementById('notification-text');
+
+        // 性能监控变量
+        let frameCount = 0;
+        let startTime = Date.now();
+        let totalData = 0;
+        let lastPingTime = 0;
+        let isDragging = false;
+        let lastMouseMoveTime = 0;
+
+        // 显示通知
+        function showNotification(message, duration = 3000) {
+            notificationText.textContent = message;
+            notification.classList.add('show');
+
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, duration);
+        }
+
+        // 更新性能计数器
+        function updatePerformance() {
+            const now = Date.now();
+            const elapsed = (now - startTime) / 1000;
+
+            if (elapsed >= 1) {
+                const fps = Math.round(frameCount / elapsed);
+                fpsCounter.textContent = `${fps} FPS`;
+
+                frameCount = 0;
+                startTime = now;
+            }
+
+            requestAnimationFrame(updatePerformance);
+        }
+
+        // 初始化性能监控
+        updatePerformance();
+
+        // WebSocket连接
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${protocol}//localhost:8000/ws/${sessionId}`);
+
+        // 连接成功
+        ws.onopen = () => {
+            console.log('WebSocket连接已建立');
+            loading.style.display = 'none';
+            status.classList.add('connected');
+            status.querySelector('span').textContent = '已连接到远程浏览器';
+            showNotification('已成功连接到远程浏览器');
+        };
+
+        // 接收消息
+        ws.onmessage = (event) => {
+            const message = JSON.parse(event.data);
+
+            // 计算接收数据量
+            totalData += event.data.length;
+            dataCounter.textContent = `${Math.round(totalData / 1024)} KB`;
+
+            if (message.type === 'screenshot') {
+                remoteBrowser.src = message.data;
+                frameCount++;
+
+                // 计算延迟
+                if (lastPingTime > 0) {
+                    const latency = Date.now() - lastPingTime;
+                    latencyCounter.textContent = `${latency} ms`;
+                }
+            }
+        };
+
+        // 连接关闭
+        ws.onclose = () => {
+            console.log('WebSocket连接已关闭');
+            status.classList.remove('connected');
+            status.querySelector('span').textContent = '连接已断开，正在尝试重连...';
+            showNotification('连接已断开，正在尝试重新连接...', 5000);
+
+            // 尝试重新连接
+            setTimeout(() => {
+                window.location.reload();
+            }, 3000);
+        };
+
+        // 错误处理
+        ws.onerror = (error) => {
+            console.error('WebSocket错误:', error);
+            status.querySelector('span').textContent = '连接错误: ' + error.message;
+            showNotification('连接发生错误: ' + error.message, 5000);
+        };
+
+        // 发送ping测试
+        setInterval(() => {
+            lastPingTime = Date.now();
+            ws.send(JSON.stringify({type: 'ping'}));
+        }, 5000);
+
+        // 鼠标事件处理
+        let isHandlingMouseEvent = false;
+
+        // 鼠标按下事件
+        remoteBrowser.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            sendMouseEvent('mousedown', e);
+        });
+
+        // 鼠标释放事件
+        document.addEventListener('mouseup', (e) => {
+            if (isDragging) {
+                isDragging = false;
+                sendMouseEvent('mouseup', e);
+            }
+        });
+
+        // 鼠标移动事件
+        document.addEventListener('mousemove', (e) => {
+            const rect = remoteBrowser.getBoundingClientRect();
+
+            // 检查鼠标是否在浏览器显示区域内
+            if (e.clientX >= rect.left && e.clientX <= rect.right &&
+                e.clientY >= rect.top && e.clientY <= rect.bottom) {
+
+                if (isDragging) {
+                    // 拖动时提高事件频率
+                    const now = Date.now();
+                    if (!lastMouseMoveTime || now - lastMouseMoveTime > 20) {
+                        sendMouseEvent('mousemove', e);
+                        lastMouseMoveTime = now;
+                    }
+                } else {
+                    // 非拖动状态正常处理
+                    if (!window.lastMouseMove || Date.now() - window.lastMouseMove > 50) {
+                        sendMouseEvent('mousemove', e);
+                        window.lastMouseMove = Date.now();
+                    }
+                }
+            }
+        });
+
+        // 双击事件处理
+        remoteBrowser.addEventListener('dblclick', (e) => {
+            sendMouseEvent('dblclick', e);
+        });
+
+        // 发送鼠标事件函数
+        function sendMouseEvent(type, event) {
+            if (isHandlingMouseEvent) return;
+            isHandlingMouseEvent = true;
+
+            const rect = remoteBrowser.getBoundingClientRect();
+            const scaleX = remoteBrowser.naturalWidth / rect.width;
+            const scaleY = remoteBrowser.naturalHeight / rect.height;
+
+            const x = (event.clientX - rect.left) * scaleX;
+            const y = (event.clientY - rect.top) * scaleY;
+
+            ws.send(JSON.stringify({
+                type: 'mouse',
+                eventType: type,
+                x: Math.round(x),
+                y: Math.round(y),
+                isDoubleClick: type === 'dblclick'
+            }));
+
+            // 重置标志
+            setTimeout(() => isHandlingMouseEvent = false, 50);
+        }
+
+        // 键盘事件优化
+         // 创建隐藏的输入框用于捕获键盘事件
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'text';
+        hiddenInput.style.position = 'absolute';
+        hiddenInput.style.opacity = '0';
+        hiddenInput.style.pointerEvents = 'none';
+        hiddenInput.style.zIndex = '-1';
+        document.body.appendChild(hiddenInput);
+
+        // 当点击浏览器区域时聚焦到隐藏输入框
+        remoteBrowser.addEventListener('click', () => {
+            hiddenInput.focus();
+            hiddenInput.value = '';
+        });
+
+        // 键盘事件处理
+        hiddenInput.addEventListener('keydown', (e) => {
+            // 阻止默认行为避免页面滚动等
+            e.preventDefault();
+
+            ws.send(JSON.stringify({
+                type: 'keyboard',
+                eventType: 'keydown',
+                key: e.key,
+                code: e.code,
+                shiftKey: e.shiftKey,
+                ctrlKey: e.ctrlKey,
+                altKey: e.altKey,
+                metaKey: e.metaKey
+            }));
+        });
+
+        // 发送滚动事件
+        remoteBrowser.addEventListener('wheel', (e) => {
+            ws.send(JSON.stringify({
+                type: 'scroll',
+                deltaX: e.deltaX,
+                deltaY: e.deltaY
+            }));
+
+            e.preventDefault();
+        });
+
+        // 导航功能
+        function navigate() {
+            let url = urlInput.value.trim();
+            if (!url) return;
+
+            // 确保URL有协议
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                url = 'https://' + url;
+                urlInput.value = url;
+            }
+
+            ws.send(JSON.stringify({
+                type: 'navigation',
+                url: url
+            }));
+
+            loading.style.display = 'flex';
+            setTimeout(() => {
+                if (loading.style.display !== 'none') {
+                    loading.style.display = 'none';
+                }
+            }, 5000);
+        }
+
+        goButton.addEventListener('click', navigate);
+        urlInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') navigate();
+        });
+
+        // 浏览器控制按钮
+        backButton.addEventListener('click', () => {
+            ws.send(JSON.stringify({
+                type: 'navigation',
+                url: 'back'
+            }));
+            showNotification('正在返回上一页');
+        });
+
+        forwardButton.addEventListener('click', () => {
+            ws.send(JSON.stringify({
+                type: 'navigation',
+                url: 'forward'
+            }));
+            showNotification('正在前进到下一页');
+        });
+
+        refreshButton.addEventListener('click', () => {
+            ws.send(JSON.stringify({
+                type: 'navigation',
+                url: 'refresh'
+            }));
+            showNotification('正在刷新页面');
+        });
+
+        // 全屏按钮
+        fullscreenButton.addEventListener('click', () => {
+            if (remoteBrowser.requestFullscreen) {
+                remoteBrowser.requestFullscreen();
+            } else if (remoteBrowser.mozRequestFullScreen) {
+                remoteBrowser.mozRequestFullScreen();
+            } else if (remoteBrowser.webkitRequestFullscreen) {
+                remoteBrowser.webkitRequestFullscreen();
+            } else if (remoteBrowser.msRequestFullscreen) {
+                remoteBrowser.msRequestFullscreen();
+            }
+        });
+
+        // 初始加载动画
+        setTimeout(() => {
+            if (loading.style.display === 'flex') {
+                loading.querySelector('p').textContent = '连接时间过长，请检查网络设置...';
+            }
+        }, 10000);
+    });
+</script>
+</body>
+</html>
