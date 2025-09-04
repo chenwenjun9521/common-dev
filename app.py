@@ -189,7 +189,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         active_sessions[session_id]["last_screenshot"] = base64_image
 
                     # 控制帧率（约15fps）
-                    await asyncio.sleep(0.001)
+                    await asyncio.sleep(0.01)
                 except Exception as e:
                     print(f"截图发送错误: {e}")
                     break
